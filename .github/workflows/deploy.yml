@@ -1,0 +1,37 @@
+name: Deploy UI
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: true
+        default: 'main'
+      ip:
+        description: 'Server IP'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.inputs.branch }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'  # Specify your Node.js version
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run deployment script
+      env:
+        IP: ${{ github.event.inputs.ip }}
+        USERNAME: ${{ secrets.SERVER_USERNAME }}
+        PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+      run: node path/to/your/deployment-script.js $IP $USERNAME $PASSWORD
