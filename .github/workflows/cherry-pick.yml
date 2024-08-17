@@ -64,7 +64,7 @@ jobs:
           git fetch origin cherry-pick-workflow-release-branch
           git checkout cherry-pick-workflow-release-branch
           git pull origin cherry-pick-workflow-release-branch
-          git checkout -b cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }} origin/cherry-pick-workflow-release-branch
+          git checkout -b cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
 
       - name: Cherry-pick the merge commit
         id: cherry-pick
