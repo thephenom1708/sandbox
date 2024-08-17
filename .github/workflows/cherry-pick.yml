@@ -3,7 +3,7 @@ name: Cherry-pick on Comment
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    branches: [ "cherry-pick-workflow-target-branch" ]
+    branches: [ "main" ]
 
 # Skip job run if PR updated
 concurrency:
