@@ -70,6 +70,7 @@ jobs:
         id: cherry-pick
         run: |
           set -e
+          git branch --show-current
           git cherry-pick ${{ env.MERGE_COMMIT }} || echo "conflict" > conflict.txt
         continue-on-error: true
 
