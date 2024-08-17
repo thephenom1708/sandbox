@@ -1,0 +1,108 @@
+name: Cherry-pick on Comment
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [ "cherry-pick-workflow-target-branch" ]
+
+# Skip job run if PR updated
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cherry-pick:
+    runs-on: shared-ui-ut
+    env:
+      GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+    steps:
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh -y
+
+      - name: Install jq
+        run: sudo apt-get install jq -y
+
+      - name: Extract branch name from comment
+        id: extract-branch
+        run: |
+          echo "RELEASE_BRANCH=$(echo '${{ github.event.comment.body }}' | sed -n 's/Cherry-pick to //p')" >> $GITHUB_ENV
+
+      - name: Validate PR is merged
+        id: validate-merge
+        run: |
+          pr_number=${{ github.event.pull_request.number }}
+          pr_data=$(gh pr view $pr_number --json state,headRefName,mergeCommit)
+          pr_state=$(echo "$pr_data" | jq -r .state)
+          merge_commit=$(echo "$pr_data" | jq -r .mergeCommit.oid)
+          head_branch=$(echo "$pr_data" | jq -r .headRefName)
+          
+          if [ "$pr_state" != "MERGED" ]; then
+            echo "Error: PR #${pr_number} is not merged."
+            exit 1
+          fi
+          
+          echo "MERGE_COMMIT=$merge_commit" >> $GITHUB_ENV
+          echo "HEAD_BRANCH=$head_branch" >> $GITHUB_ENV
+          echo "BASE_BRANCH=$base_branch" >> $GITHUB_ENV
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Checkout and pull the target branch of the source PR
+        run: |
+          git fetch origin ${{ env.BASE_BRANCH }}
+          git checkout ${{ env.BASE_BRANCH }}
+          git pull origin ${{ env.BASE_BRANCH }}
+
+      - name: Create a new branch from the release branch
+        run: |
+          git fetch origin cherry-pick-workflow-release-branch
+          git checkout cherry-pick-workflow-release-branch
+          git pull origin cherry-pick-workflow-release-branch
+          git checkout -b cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }} origin/cherry-pick-workflow-release-branch
+
+      - name: Cherry-pick the merge commit
+        id: cherry-pick
+        run: |
+          set -e
+          git cherry-pick ${{ env.MERGE_COMMIT }} || echo "conflict" > conflict.txt
+        continue-on-error: true
+
+      - name: Check for conflicts
+        id: check-conflicts
+        run: |
+          if [ -f conflict.txt ]; then
+            echo "CONFLICT=true" >> $GITHUB_ENV
+          else
+            echo "CONFLICT=false" >> $GITHUB_ENV
+          fi
+
+      - name: Handle conflict and exit
+        if: env.CONFLICT == 'true'
+        run: |
+          git cherry-pick --abort
+          git checkout cherry-pick-workflow-release-branch
+          git branch -D cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
+          git push origin --delete cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
+          gh pr comment ${{ github.event.pull_request.number }} --body "Conflict detected while cherry-picking to the cherry-pick-workflow-release-branch branch. The cherry-pick could not be completed, please resolve the conflict manually."
+          exit 1
+
+      - name: Push the new branch
+        run: git push origin cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
+
+      - name: Create Pull Request
+        id: create-pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+          base: cherry-pick-workflow-release-branch
+          head: cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
+          title: ${{ github.event.pull_request.title }}
+          body: ${{ github.event.pull_request.body }}
+
+      - name: Post success comment on source PR
+        run: |
+          pr_url=$(gh pr view ${{ steps.create-pr.outputs.pull-request-url }})
+          gh pr comment ${{ github.event.pull_request.number }} --body "Cherry-pick PR created successfully: $pr_url"
