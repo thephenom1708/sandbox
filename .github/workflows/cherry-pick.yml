@@ -12,10 +12,13 @@ concurrency:
 
 jobs:
   cherry-pick:
-    runs-on: shared-ui-ut
+    runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
       - name: Install GitHub CLI
         run: sudo apt-get install gh -y
 
@@ -61,7 +64,7 @@ jobs:
           git fetch origin cherry-pick-workflow-release-branch
           git checkout cherry-pick-workflow-release-branch
           git pull origin cherry-pick-workflow-release-branch
-          git checkout -b cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }} origin/cherry-pick-workflow-release-branch
+          git checkout -b cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }} 
 
       - name: Cherry-pick the merge commit
         id: cherry-pick
@@ -84,21 +87,20 @@ jobs:
         run: |
           git cherry-pick --abort
           git checkout cherry-pick-workflow-release-branch
-          git branch -D cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
-          git push origin --delete cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
+          git branch -D cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }}
           gh pr comment ${{ github.event.pull_request.number }} --body "Conflict detected while cherry-picking to the cherry-pick-workflow-release-branch branch. The cherry-pick could not be completed, please resolve the conflict manually."
           exit 1
 
       - name: Push the new branch
-        run: git push origin cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
+        run: git push origin cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }}
 
       - name: Create Pull Request
         id: create-pr
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           base: cherry-pick-workflow-release-branch
-          head: cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
+          head: cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }}
           title: ${{ github.event.pull_request.title }}
           body: ${{ github.event.pull_request.body }}
 
