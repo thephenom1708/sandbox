@@ -72,5 +72,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
         run: |
-          gh auth login --with-token <<< "${{ secrets.PERSONAL_GITHUB_TOKEN }}"
           gh pr create --base cherry-pick-workflow-release-branch --head cherry-pick-workflow-release-branch-test --title "Your PR title" --body "Your PR description"
