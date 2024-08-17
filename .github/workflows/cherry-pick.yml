@@ -88,7 +88,6 @@ jobs:
           git cherry-pick --abort
           git checkout cherry-pick-workflow-release-branch
           git branch -D cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
-          git push origin --delete cherry-pick-workflow-release-branch/${{ env.HEAD_BRANCH }}
           gh pr comment ${{ github.event.pull_request.number }} --body "Conflict detected while cherry-picking to the cherry-pick-workflow-release-branch branch. The cherry-pick could not be completed, please resolve the conflict manually."
           exit 1
 
