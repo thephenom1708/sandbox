@@ -32,6 +32,9 @@ jobs:
 
       - name: Create a new branch from the release branch
         run: |
+          git fetch origin main
+          git checkout main
+          git pull origin main
           git fetch origin cherry-pick-workflow-release-branch
           git checkout cherry-pick-workflow-release-branch
           git pull origin cherry-pick-workflow-release-branch
