@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   cherry-pick:
-    runs-on: shared-ui-ut
+    runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
     steps:
