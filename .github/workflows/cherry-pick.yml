@@ -47,6 +47,10 @@ jobs:
           echo "MERGE_COMMIT=$merge_commit" >> $GITHUB_ENV
           echo "HEAD_BRANCH=$head_branch" >> $GITHUB_ENV
           echo "BASE_BRANCH=$base_branch" >> $GITHUB_ENV
+          echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
+
+      - name: Dump GitHub event payload
+        run: echo "${{ toJson(github.event.issue.pull_request) }}"
 
       - name: Set up Git
         run: |
@@ -89,7 +93,7 @@ jobs:
           git cherry-pick --abort
           git checkout ${{ env.RELEASE_BRANCH }}
           git branch -D ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }}
-          gh pr comment ${{ github.event.pull_request.number }} --body "Conflict detected while cherry-picking to the cherry-pick-workflow-release-branch branch. The cherry-pick could not be completed, please resolve the conflict manually."
+          gh pr comment ${{ env.PR_NUMBER }} --body "Conflict detected while cherry-picking to the cherry-pick-workflow-release-branch branch. The cherry-pick could not be completed, please resolve the conflict manually."
           exit 1
 
       - name: Push the new branch
@@ -99,9 +103,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
         run: |
-          gh pr create --base ${{ env.RELEASE_BRANCH }} --head cherry-pick-workflow-release-branch-test --title ${{ github.event.pull_request.title }} --body ${{ github.event.pull_request.body }}
+          gh pr create --base ${{ env.RELEASE_BRANCH }} --head ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} --title ${{ github.event.pull_request.title }} --body ${{ github.event.pull_request.body }}
 
       - name: Post success comment on source PR
         run: |
-          pr_url=$(gh pr view ${{ steps.create-pr.outputs.pull-request-url }})
-          gh pr comment ${{ github.event.pull_request.number }} --body "Cherry-pick PR created successfully: $pr_url"
+          gh pr comment ${{ env.PR_NUMBER }} --body "Cherry-pick PR created successfully"
