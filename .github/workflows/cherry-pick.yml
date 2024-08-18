@@ -53,7 +53,7 @@ jobs:
           echo "BASE_BRANCH=$base_branch" >> $GITHUB_ENV
           echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
           echo "PR_TITLE=$pr_title" >> $GITHUB_ENV
-          echo "PR_BODY=$pr_data" >> $GITHUB_ENV
+          echo "PR_BODY=$pr_body" >> $GITHUB_ENV
 
       - name: Dump GitHub event payload
         run: echo "${{ toJson(github.event.issue.pull_request) }}"
@@ -109,7 +109,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
         run: |
-          pr_url=$(gh pr create --base ${{ env.RELEASE_BRANCH }} --head ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} --title "${{ env.PR_TITLE }}" --body "${{ env.PR_BODY }}" --json url --jq '.url')
+          pr_url=$(gh pr create --base ${{ env.RELEASE_BRANCH }} --head ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} --title "${{ env.PR_TITLE }}" --body "${{ env.PR_BODY }}")
           echo "CHERRY_PICK_PR_URL=$pr_url" >> $GITHUB_ENV
 
       - name: Post success comment on source PR
