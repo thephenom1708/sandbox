@@ -36,11 +36,13 @@ jobs:
           echo $pr_number
           pr_data=$(gh pr view $pr_number --json state,headRefName,mergeCommit)
           pr_state=$(echo "$pr_data" | jq -r .state)
+          pr_title=$(echo "$pr_data" | jq -r .title)
+          pr_body=$(echo "$pr_data" | jq -r .body)
           merge_commit=$(echo "$pr_data" | jq -r .mergeCommit.oid)
           head_branch=$(echo "$pr_data" | jq -r .headRefName)
           
           if [ "$pr_state" != "MERGED" ]; then
-            echo "Error: PR #${pr_number} is not merged."
+            echo "Error: PR ${{ github.event.issue.pull_request.url }} is not merged."
             exit 1
           fi
           
@@ -48,6 +50,8 @@ jobs:
           echo "HEAD_BRANCH=$head_branch" >> $GITHUB_ENV
           echo "BASE_BRANCH=$base_branch" >> $GITHUB_ENV
           echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
+          echo "PR_TITLE=$pr_title" >> $GITHUB_ENV
+          echo "PR_BODY=$pr_data" >> $GITHUB_ENV
 
       - name: Dump GitHub event payload
         run: echo "${{ toJson(github.event.issue.pull_request) }}"
@@ -103,8 +107,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
         run: |
-          gh pr create --base ${{ env.RELEASE_BRANCH }} --head ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} --title ${{ github.event.pull_request.title }} --body ${{ github.event.pull_request.body }}
+          pr_url=$(gh pr create --base ${{ env.RELEASE_BRANCH }} --head ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} --title "${{ env.PR_TITLE }}" --body "${{ env.PR_BODY }}" --json url --jq '.url')
+          echo "CHERRY_PICK_PR_URL=$pr_url" >> $GITHUB_ENV
 
       - name: Post success comment on source PR
         run: |
-          gh pr comment ${{ env.PR_NUMBER }} --body "Cherry-pick PR created successfully"
+          gh pr comment ${{ env.PR_NUMBER }} --body "Cherry-pick PR created successfully: ${{ env.CHERRY_PICK_PR_URL }}"
