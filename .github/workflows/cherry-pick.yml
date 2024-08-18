@@ -1,20 +1,19 @@
 name: Cherry-pick on Comment
 
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
-    branches: [ "main" ]
+  issue_comment:
+    types: [created]
 
-# Skip job run if PR updated
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   cherry-pick:
+    if: startsWith(github.event.comment.body, 'Cherry-pick to')
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -25,7 +24,7 @@ jobs:
       - name: Install jq
         run: sudo apt-get install jq -y
 
-      - name: Extract branch name from comment
+      - name: Extract release branch name from comment
         id: extract-branch
         run: |
           echo "RELEASE_BRANCH=$(echo '${{ github.event.comment.body }}' | sed -n 's/Cherry-pick to //p')" >> $GITHUB_ENV
@@ -61,10 +60,10 @@ jobs:
 
       - name: Create a new branch from the release branch
         run: |
-          git fetch origin cherry-pick-workflow-release-branch
-          git checkout cherry-pick-workflow-release-branch
-          git pull origin cherry-pick-workflow-release-branch
-          git checkout -b cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }} 
+          git fetch origin ${{ env.RELEASE_BRANCH }}
+          git checkout ${{ env.RELEASE_BRANCH }}
+          git pull origin ${{ env.RELEASE_BRANCH }}
+          git checkout -b ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} 
 
       - name: Cherry-pick the merge commit
         id: cherry-pick
@@ -87,23 +86,19 @@ jobs:
         if: env.CONFLICT == 'true'
         run: |
           git cherry-pick --abort
-          git checkout cherry-pick-workflow-release-branch
-          git branch -D cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }}
+          git checkout ${{ env.RELEASE_BRANCH }}
+          git branch -D ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }}
           gh pr comment ${{ github.event.pull_request.number }} --body "Conflict detected while cherry-picking to the cherry-pick-workflow-release-branch branch. The cherry-pick could not be completed, please resolve the conflict manually."
           exit 1
 
       - name: Push the new branch
-        run: git push origin cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }}
+        run: git push origin ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }}
 
       - name: Create Pull Request
-        id: create-pr
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: cherry-pick-workflow-release-branch
-          head: cherry-pick-workflow-release-branch-${{ env.HEAD_BRANCH }}
-          title: ${{ github.event.pull_request.title }}
-          body: ${{ github.event.pull_request.body }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+        run: |
+          gh pr create --base ${{ env.RELEASE_BRANCH }} --head cherry-pick-workflow-release-branch-test --title ${{ github.event.pull_request.title }} --body ${{ github.event.pull_request.body }}
 
       - name: Post success comment on source PR
         run: |
