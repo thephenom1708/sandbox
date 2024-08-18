@@ -4,9 +4,13 @@ on:
   issue_comment:
     types: [created]
 
+concurrency:
+  group: cherry-pick-${{ github.event.issue.number }}-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   cherry-pick:
-    if: startsWith(github.event.comment.body, 'Cherry-pick to')
+    if: ${{ startsWith(github.event.comment.body, 'Cherry-pick to') && github.actor != 'github-actions' && github.event.issue.pull_request != null }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
@@ -29,10 +33,9 @@ jobs:
         id: validate-merge
         run: |
           pr_number=$(basename "${{ github.event.issue.pull_request.url }}")
-          echo $pr_number
+          echo "ISSUE NUMBER"
+          echo '${{ github.event.issue.number }}'
           pr_data=$(gh pr view $pr_number --json title,body,state,headRefName,mergeCommit)
-          echo "PR DATA"
-          echo $pr_data
           pr_state=$(echo "$pr_data" | jq -r .state)
           pr_title=$(echo "$pr_data" | jq -r .title)
           pr_body=$(echo "$pr_data" | jq -r .body)
@@ -51,12 +54,6 @@ jobs:
           echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
           echo "PR_TITLE=$pr_title" >> $GITHUB_ENV
           echo "PR_BODY=$escaped_pr_body" >> $GITHUB_ENV
-
-      - name: Post comment to original PR that cherry-picking has started
-        run: |
-          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          comment="Cherry-picking process has started. You can track the progress [here]($workflow_url)."
-          gh pr comment ${{ env.PR_NUMBER }} --body "$comment"
 
       - name: Set up Git
         run: |
