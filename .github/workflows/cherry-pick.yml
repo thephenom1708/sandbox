@@ -56,8 +56,11 @@ jobs:
           echo "PR_TITLE=$pr_title" >> $GITHUB_ENV
           echo "PR_BODY=$escaped_pr_body" >> $GITHUB_ENV
 
-      - name: Dump GitHub event payload
-        run: echo "${{ toJson(github.event.issue.pull_request) }}"
+      - name: Post comment to original PR that cherry-picking has started
+        run: |
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          comment="Cherry-picking process has started. You can track the progress [here]($workflow_url)."
+          gh pr comment ${{ env.PR_NUMBER }} --body "$comment"
 
       - name: Set up Git
         run: |
@@ -110,9 +113,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
         run: |
-          pr_url=$(gh pr create --base ${{ env.RELEASE_BRANCH }} --head ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} --title "${{ env.PR_TITLE }}" --body "${{ env.PR_BODY }}")
+          pr_body=$(echo "${{ env.PR_BODY }}" | sed 's/\\n/\n/g' | sed 's/\\r/\r/g')
+          pr_url=$(gh pr create --base ${{ env.RELEASE_BRANCH }} --head ${{ env.RELEASE_BRANCH }}-${{ env.HEAD_BRANCH }} --title "${{ env.PR_TITLE }}" --body "$pr_body")
           echo "CHERRY_PICK_PR_URL=$pr_url" >> $GITHUB_ENV
 
       - name: Post success comment on source PR
         run: |
           gh pr comment ${{ env.PR_NUMBER }} --body "Cherry-pick PR created successfully: ${{ env.CHERRY_PICK_PR_URL }}"
+
+
+  failure:
+    needs: [cherry-pick]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post failure comment on original PR
+        run: |
+          workflow_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          comment="Cherry-picking process failed. You can view the details [here]($workflow_url)."
+          gh pr comment ${{ env.PR_NUMBER }} --body "$comment"
