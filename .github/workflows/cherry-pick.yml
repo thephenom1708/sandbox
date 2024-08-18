@@ -33,8 +33,6 @@ jobs:
         id: validate-merge
         run: |
           pr_number=$(basename "${{ github.event.issue.pull_request.url }}")
-          echo "ISSUE NUMBER"
-          echo '${{ github.event.issue.number }}'
           pr_data=$(gh pr view $pr_number --json title,body,state,headRefName,mergeCommit)
           pr_state=$(echo "$pr_data" | jq -r .state)
           pr_title=$(echo "$pr_data" | jq -r .title)
@@ -114,6 +112,8 @@ jobs:
     needs: cherry-pick
     if: success()
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
     steps:
       - name: Post success comment on source PR
         run: |
@@ -123,6 +123,8 @@ jobs:
     needs: cherry-pick
     if: failure()
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
     steps:
       - name: Post failure comment on source PR
         run: |
